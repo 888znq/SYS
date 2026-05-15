@@ -21,16 +21,16 @@
         
                 .grid-item {
                             background-color: #000432; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center;
-                            position: relative; cursor: pointer; overflow: hidden; border: 2px solid #ff0000; color: #ff0000;
+                            position: relative; cursor: pointer; overflow: hidden; border: 3px solid #FF4444; color: #FF4444;
                             font-weight: 700; text-align: center; font-size: clamp(7px, 1vw, 12px); outline: none; padding: 0;
                             user-select: none; -webkit-user-select: none; border-radius: 12px;
                         }
                         .content-wrapper { pointer-events: none; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
                         .content-wrapper img { width: 100%; height: 100%; object-fit: cover; }
-        
-                .grid-item.completed { color: #00ff00; border-color: #00ff00; }
-                .grid-item.completed::after { display: none; }
-        .grid-item.swap-source { border: 2px solid #ffff00 !important; box-shadow: 0 0 10px #ffff00; }
+                
+                        .grid-item.completed { color: #00E676; border-color: #00E676; }
+                        .grid-item.completed::after { display: none; }
+                        .grid-item.swap-source { border: 3px solid #FFD500 !important; box-shadow: 0 0 10px #FFD500; }
 
         .ctrl-btn {
             background: rgba(255,255,255,0.05); border: 1px solid white; color: white; cursor: pointer;
@@ -39,8 +39,8 @@
         }
         .ctrl-btn:hover { background: white; color: #000432; }
         .lock-btn { position: absolute; top: 10px; left: 10px; padding: 5px 10px; z-index: 30; }
-        .lock-btn.locked { background: #ff0000; color: white; border-color: #ff0000; }
-        .lock-btn.unlocked { background: transparent; color: #00ff00; border-color: #00ff00; }
+                .lock-btn.locked { background: #FF4444; color: white; border-color: #FF4444; }
+                .lock-btn.unlocked { background: transparent; color: #00E676; border-color: #00E676; }
 
         .bottom-controls-wrapper { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 25; }
         .controls-col { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 5px; z-index: 10; }
@@ -57,8 +57,8 @@
         }
         .grid-unlocked .grid-item:hover .cell-btn { opacity: 1; transform: scale(1.1); }
         .btn-swap { top: 2px; left: 2px; }
-        .btn-clear { top: 2px; right: 2px; border-color: #ff0000; }
-        .btn-text { bottom: 2px; left: 2px; }
+                .btn-clear { top: 2px; right: 2px; border-color: #FF4444; }
+                .btn-text { bottom: 2px; left: 2px; }
         .btn-upload { bottom: 2px; right: 2px; }
 
         .uploading-overlay {
@@ -71,11 +71,11 @@
 <body>
         <button class="ctrl-btn lock-btn unlocked" id="lock-system" onclick="toggleLock()">Unlock</button>
         <div id="grid-system" class="dynamic-grid"></div>
-        <button id="reset-bottom-btn" onclick="resetBottomRows()" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 30; background: transparent; border: none; color: #ff0000; cursor: pointer; display: none; padding: 0; outline: none; align-items: center; justify-content: center;">
-            <svg width="60" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-5.096 0-5.096 8 0 8 5.606 0 7.644-8 12.739-8z"></path>
-            </svg>
-        </button>
+        <button id="reset-bottom-btn" onclick="resetBottomRows()" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 30; background: #000432; border: 1px solid rgba(255,68,68,0.2); color: #FF4444; cursor: pointer; display: none; padding: 5px 15px; outline: none; align-items: center; justify-content: center; border-radius: 20px; box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.7), -4px -4px 10px rgba(255, 255, 255, 0.04); transition: 0.2s;">
+                    <svg width="50" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0px 0px 4px rgba(255,68,68,0.5));">
+                        <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-5.096 0-5.096 8 0 8 5.606 0 7.644-8 12.739-8z"></path>
+                    </svg>
+                </button>
         <div class="bottom-controls-wrapper" id="size-ctrls-bottom" style="display:flex; gap:5px;">
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', 1)">+</button>
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', -1)">-</button>
@@ -243,10 +243,10 @@
                 else container.classList.add('grid-unlocked');
 
                 const mainDisplayHeight = window.innerHeight;
-                                const mainDisplayWidth = window.innerWidth;
-                                const gap = 5;
-                                const maxCellW = (mainDisplayWidth - (config.cols - 1) * gap) / config.cols;
-                const maxCellH = (mainDisplayHeight - (config.rows - 1) * gap) / config.rows;
+                                                const mainDisplayWidth = window.innerWidth;
+                                                const gap = 16;
+                                                const maxCellW = ((mainDisplayWidth - 60) - (config.cols - 1) * gap) / config.cols;
+                                const maxCellH = ((mainDisplayHeight - 60) - (config.rows - 1) * gap) / config.rows;
                 const cellSize = Math.floor(Math.min(maxCellW, maxCellH));
 
                 container.style.width = `${(cellSize * config.cols) + ((config.cols - 1) * gap)}px`;
