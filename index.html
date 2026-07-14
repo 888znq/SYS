@@ -148,8 +148,8 @@
                 formData.append("image", file);
                 const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
                 const data = await response.json();
-                if (data.success) { update(cellRef, { text: data.data.url }); }
-                else { throw new Error("ImgBB upload failed"); }
+                if (data.success) { openPositioner(cellRef, data.data.url, {}); }
+                                else { throw new Error("ImgBB upload failed"); }
             } catch (error) {
                 console.error("Upload failed:", error);
                 alert("Upload failed.");
@@ -162,6 +162,60 @@
         });
 
         window.toggleLock = () => set(ref(db, `grids/${GRID_ID}/config/locked`), !lockedState);
+        
+                function isImageUrl(str) {
+                                    const cleanText = (str || "").trim();
+                                    return /\.(jpg|jpeg|png|webp|gif|svg|avif)($|\?)/i.test(cleanText) || cleanText.includes("ibb.co") || cleanText.startsWith("data:image/") || cleanText.includes("gstatic.com/images") || cleanText.includes("googleusercontent.com");
+                                }
+                
+                                const POS_REF = 300;
+        
+                const posOverlay = document.createElement('div');
+                posOverlay.id = 'pos-overlay';
+                posOverlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,4,50,0.92);z-index:100;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
+                posOverlay.innerHTML = `
+                    <div id="pos-box" style="width:300px;height:300px;background:#fff;border:1px solid rgba(0,0,0,0.2);overflow:hidden;position:relative;cursor:grab;border-radius:12px;">
+                        <img id="pos-img" draggable="false" style="position:absolute;left:50%;top:50%;user-select:none;">
+                    </div>
+                    <input id="pos-zoom" type="range" min="10" max="300" value="100" style="width:300px;">
+                    <button id="pos-done" class="ctrl-btn" style="padding:8px 18px;">Done</button>
+                `;
+                document.body.appendChild(posOverlay);
+        
+                const posBox = posOverlay.querySelector('#pos-box');
+                const posImgEl = posOverlay.querySelector('#pos-img');
+                const posZoom = posOverlay.querySelector('#pos-zoom');
+                const posDone = posOverlay.querySelector('#pos-done');
+        
+                let posX = 0, posY = 0, posDragging = false, posSX = 0, posSY = 0;
+                let activeCellRef = null, activeUrl = '';
+        
+                function updatePosTransform() {
+                    const s = posZoom.value / 100;
+                    posImgEl.style.transform = `translate(-50%,-50%) translate(${posX}px,${posY}px) scale(${s})`;
+                }
+        
+                posBox.addEventListener('mousedown', (e) => { posDragging = true; posSX = e.clientX - posX; posSY = e.clientY - posY; posBox.style.cursor = 'grabbing'; });
+                window.addEventListener('mousemove', (e) => { if (!posDragging) return; posX = e.clientX - posSX; posY = e.clientY - posSY; updatePosTransform(); });
+                window.addEventListener('mouseup', () => { posDragging = false; posBox.style.cursor = 'grab'; });
+                posZoom.addEventListener('input', updatePosTransform);
+        
+                function closePositioner(save) {
+                    if (save && activeCellRef) { update(activeCellRef, { text: activeUrl, posX, posY, scale: posZoom.value / 100 }); }
+                    posOverlay.style.display = 'none';
+                    activeCellRef = null;
+                }
+                posDone.addEventListener('click', () => closePositioner(true));
+                posOverlay.addEventListener('click', (e) => { if (e.target === posOverlay) closePositioner(true); });
+        
+                window.openPositioner = (cellRef, url, existing) => {
+                    activeCellRef = cellRef; activeUrl = url;
+                    posImgEl.src = url;
+                    posX = existing?.posX || 0; posY = existing?.posY || 0;
+                    posZoom.value = existing?.scale ? existing.scale * 100 : 100;
+                    updatePosTransform();
+                    posOverlay.style.display = 'flex';
+                };
 
         window.changeSize = (type, delta) => {
                     if (lockedState) return;
@@ -190,14 +244,19 @@
                             }, { onlyOnce: true });
                         };
 
-        function renderContent(el, text) {
-                    const cleanText = text?.trim() || "";
-                    const isImage = /\.(jpg|jpeg|png|webp|gif|svg|avif)($|\?)/i.test(cleanText) || cleanText.includes("ibb.co") || cleanText.startsWith("data:image/") || cleanText.includes("gstatic.com/images") || cleanText.includes("googleusercontent.com");
-                    if (isImage) { el.innerHTML = `<img src="${cleanText}" crossorigin="anonymous" draggable="false">`; }
-                    else { el.innerText = cleanText; }
-                }
-
-        function createCell(id, container) {
+        function renderContent(el, data, cellSize) {
+                                    const cleanText = (data?.text || "").trim();
+                            if (isImageUrl(cleanText)) {
+                                                    el.style.background = '#fff';
+                                                    const hasAdjust = typeof data.scale === 'number';
+                                                    const ratio = (cellSize || POS_REF) / POS_REF;
+                                                    const style = hasAdjust ? `style="position:absolute;left:50%;top:50%;width:auto;height:auto;max-width:none;object-fit:unset;transform:translate(-50%,-50%) translate(${(data.posX||0)*ratio}px,${(data.posY||0)*ratio}px) scale(${data.scale*ratio});"` : '';
+                                                    el.innerHTML = `<img src="${cleanText}" crossorigin="anonymous" draggable="false" ${style}>`;
+                                                }
+                                                else { el.style.background = ''; el.innerText = cleanText; }
+                                            }
+        
+                function createCell(id, container, cellSize) {
             const cell = document.createElement('div');
             cell.className = 'grid-item';
             container.appendChild(cell);
@@ -216,14 +275,15 @@
             cell.appendChild(actionOverlay);
 
             const cellRef = ref(db, `grids/${GRID_ID}/data/${id}`);
-            onValue(cellRef, (snap) => {
-                const val = snap.val() || { text: "", completed: false };
-                renderContent(contentDiv, val.text);
-                val.completed ? cell.classList.add('completed') : cell.classList.remove('completed');
-            });
+                                    let lastVal = { text: "", completed: false };
+                                    onValue(cellRef, (snap) => {
+                                        lastVal = snap.val() || { text: "", completed: false };
+                                        renderContent(contentDiv, lastVal, cellSize);
+                                        lastVal.completed ? cell.classList.add('completed') : cell.classList.remove('completed');
+                                    });
 
             btnUpload.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; targetCellForUpload = { cellRef, cellEl: cell }; uploaderInput.click(); });
-            btnText.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; let cur = contentDiv.innerText || contentDiv.querySelector('img')?.src || ""; let nw = prompt("Enter text or image URL:", cur); if (nw !== null) update(cellRef, { text: nw }); });
+            btnText.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; let cur = lastVal.text || ""; let nw = prompt("Enter text or image URL:", cur); if (nw === null) return; if (isImageUrl(nw)) { openPositioner(cellRef, nw, lastVal); } else { update(cellRef, { text: nw, posX: null, posY: null, scale: null }); } });
             btnSwap.addEventListener('click', (e) => {
                 e.stopPropagation(); if (lockedState) return;
                 if (!swapSource) { swapSource = { id, element: cell }; cell.classList.add('swap-source'); }
@@ -271,9 +331,9 @@
                 container.style.gridTemplateRows = `repeat(${config.rows}, 1fr)`;
 
                 container.innerHTML = '';
-                for (let i = 0; i < config.rows * config.cols; i++) {
-                    createCell(`${Math.floor(i / config.cols)}_${i % config.cols}`, container);
-                }
+                                for (let i = 0; i < config.rows * config.cols; i++) {
+                                    createCell(`${Math.floor(i / config.cols)}_${i % config.cols}`, container, cellSize);
+                                }
             });
         }
 
