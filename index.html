@@ -152,7 +152,7 @@
                                 else { throw new Error("ImgBB upload failed"); }
             } catch (error) {
                 console.error("Upload failed:", error);
-                alert("Upload failed.");
+                showToast("Upload failed.");
             } finally {
                 targetCellForUpload = null;
                 uploaderInput.value = '';
@@ -217,7 +217,48 @@
                     posOverlay.style.display = 'flex';
                 };
 
-        window.changeSize = (type, delta) => {
+        const textOverlay = document.createElement('div');
+                textOverlay.id = 'text-overlay';
+                textOverlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,4,50,0.92);z-index:110;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
+                textOverlay.innerHTML = `
+                    <div style="color:#fff;font-size:0.8rem;font-weight:600;">Enter text or image URL</div>
+                    <input id="text-input-field" type="text" style="width:280px;padding:10px;border-radius:8px;border:1px solid #00ffff;background:#000432;color:#fff;font-family:'Lexend Deca',sans-serif;">
+                    <div style="display:flex;gap:10px;">
+                        <button id="text-input-cancel" class="ctrl-btn" style="padding:8px 18px;">Cancel</button>
+                        <button id="text-input-save" class="ctrl-btn" style="padding:8px 18px;">Save</button>
+                    </div>
+                `;
+                document.body.appendChild(textOverlay);
+        
+                const textInputField = textOverlay.querySelector('#text-input-field');
+                const textInputSave = textOverlay.querySelector('#text-input-save');
+                const textInputCancel = textOverlay.querySelector('#text-input-cancel');
+                let textInputCallback = null;
+        
+                function openTextInput(currentValue, callback) {
+                    textInputField.value = currentValue || '';
+                    textInputCallback = callback;
+                    textOverlay.style.display = 'flex';
+                    setTimeout(() => textInputField.focus(), 50);
+                }
+                function closeTextInput(save) {
+                    if (save && textInputCallback) { textInputCallback(textInputField.value); }
+                    textOverlay.style.display = 'none';
+                    textInputCallback = null;
+                }
+                textInputSave.addEventListener('click', () => closeTextInput(true));
+                textInputCancel.addEventListener('click', () => closeTextInput(false));
+                textInputField.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeTextInput(true); if (e.key === 'Escape') closeTextInput(false); });
+        
+                function showToast(msg) {
+                    const toast = document.createElement('div');
+                    toast.innerText = msg;
+                    toast.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,4,50,0.95);border:1px solid #FF4444;color:#fff;padding:10px 18px;border-radius:8px;font-size:0.75rem;z-index:120;';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2500);
+                }
+        
+                window.changeSize = (type, delta) => {
                     if (lockedState) return;
                     const configRef = ref(db, `grids/${GRID_ID}/config`);
                     onValue(configRef, (snap) => {
@@ -283,7 +324,7 @@
                                     });
 
             btnUpload.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; targetCellForUpload = { cellRef, cellEl: cell }; uploaderInput.click(); });
-            btnText.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; let cur = lastVal.text || ""; let nw = prompt("Enter text or image URL:", cur); if (nw === null) return; if (isImageUrl(nw)) { openPositioner(cellRef, nw, lastVal); } else { update(cellRef, { text: nw, posX: null, posY: null, scale: null }); } });
+            btnText.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; openTextInput(lastVal.text || "", (nw) => { if (isImageUrl(nw)) { openPositioner(cellRef, nw, lastVal); } else { update(cellRef, { text: nw, posX: null, posY: null, scale: null }); } }); });
             btnSwap.addEventListener('click', (e) => {
                 e.stopPropagation(); if (lockedState) return;
                 if (!swapSource) { swapSource = { id, element: cell }; cell.classList.add('swap-source'); }
