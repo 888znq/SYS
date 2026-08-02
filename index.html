@@ -73,11 +73,14 @@
         }
         .grid-unlocked .grid-item:hover .cell-btn { opacity: 1; transform: scale(1.1); }
         .btn-swap { top: 2px; left: 2px; }
-                .btn-clear { top: 2px; right: 2px; border-color: #FF4444; }
-                .btn-text { bottom: 2px; left: 2px; }
-        .btn-upload { bottom: 2px; right: 2px; }
-
-        .uploading-overlay {
+                        .btn-clear { top: 2px; right: 2px; border-color: #FF4444; }
+                        .btn-text { bottom: 2px; left: 2px; }
+                .btn-upload { bottom: 2px; right: 2px; }
+                .btn-tick { top: 50%; left: 50%; transform: translate(-50%, -50%); border-color: #0088ff; }
+                .blue-tick-icon { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; background: #0088ff; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 10; opacity: 0; pointer-events: none; border: 2px solid var(--bg-color); }
+                .grid-item.has-tick .blue-tick-icon { opacity: 1; }
+        
+                .uploading-overlay {
             position: absolute; inset: 0; background: rgba(0, 4, 50, 0.8);
             display: flex; align-items: center; justify-content: center;
             color: #00ffff; font-size: 0.7rem; font-weight: bold; z-index: 10;
@@ -298,47 +301,55 @@
                                             }
         
                 function createCell(id, container, cellSize) {
-            const cell = document.createElement('div');
-            cell.className = 'grid-item';
-            container.appendChild(cell);
-
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'content-wrapper';
-            cell.appendChild(contentDiv);
-
-            const actionOverlay = document.createElement('div');
-            actionOverlay.className = 'action-overlay';
-            const btnSwap = document.createElement('button'); btnSwap.className='cell-btn btn-swap'; btnSwap.innerHTML='🔄';
-            const btnClear = document.createElement('button'); btnClear.className='cell-btn btn-clear'; btnClear.innerHTML='❌';
-            const btnText = document.createElement('button'); btnText.className='cell-btn btn-text'; btnText.innerHTML='📝';
-            const btnUpload = document.createElement('button'); btnUpload.className='cell-btn btn-upload'; btnUpload.innerHTML='📷';
-            actionOverlay.appendChild(btnSwap); actionOverlay.appendChild(btnClear); actionOverlay.appendChild(btnText); actionOverlay.appendChild(btnUpload);
-            cell.appendChild(actionOverlay);
-
-            const cellRef = ref(db, `grids/${GRID_ID}/data/${id}`);
-                                    let lastVal = { text: "", completed: false };
-                                    onValue(cellRef, (snap) => {
-                                        lastVal = snap.val() || { text: "", completed: false };
-                                        renderContent(contentDiv, lastVal, cellSize);
-                                        lastVal.completed ? cell.classList.add('completed') : cell.classList.remove('completed');
-                                    });
-
-            btnUpload.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; targetCellForUpload = { cellRef, cellEl: cell }; uploaderInput.click(); });
-            btnText.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; openTextInput(lastVal.text || "", (nw) => { if (isImageUrl(nw)) { openPositioner(cellRef, nw, lastVal); } else { update(cellRef, { text: nw, posX: null, posY: null, scale: null }); } }); });
-            btnSwap.addEventListener('click', (e) => {
-                e.stopPropagation(); if (lockedState) return;
-                if (!swapSource) { swapSource = { id, element: cell }; cell.classList.add('swap-source'); }
-                else if (swapSource.id === id) { swapSource.element.classList.remove('swap-source'); swapSource = null; }
-                else {
-                    const sRef = ref(db, `grids/${GRID_ID}/data/${swapSource.id}`);
-                    const tRef = ref(db, `grids/${GRID_ID}/data/${id}`);
-                    onValue(sRef, (s1) => { onValue(tRef, (s2) => { update(sRef, s2.val()); update(tRef, s1.val()); }, { onlyOnce: true }); }, { onlyOnce: true });
-                    swapSource.element.classList.remove('swap-source'); swapSource = null;
-                }
-            });
-            btnClear.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; update(cellRef, { text: "", completed: false }); });
-            cell.addEventListener('click', () => { const nowCompleted = !cell.classList.contains('completed'); nowCompleted ? cell.classList.add('completed') : cell.classList.remove('completed'); update(cellRef, { completed: nowCompleted }); });
-        }
+                            var cell = document.createElement('div');
+                            cell.className = 'grid-item';
+                            container.appendChild(cell);
+                
+                            var contentDiv = document.createElement('div');
+                            contentDiv.className = 'content-wrapper';
+                            cell.appendChild(contentDiv);
+                
+                            var tickIcon = document.createElement('div');
+                            tickIcon.className = 'blue-tick-icon';
+                            tickIcon.innerHTML = '✔';
+                            cell.appendChild(tickIcon);
+                
+                            var actionOverlay = document.createElement('div');
+                            actionOverlay.className = 'action-overlay';
+                            var btnSwap = document.createElement('button'); btnSwap.className='cell-btn btn-swap'; btnSwap.innerHTML='🔄';
+                            var btnClear = document.createElement('button'); btnClear.className='cell-btn btn-clear'; btnClear.innerHTML='❌';
+                            var btnText = document.createElement('button'); btnText.className='cell-btn btn-text'; btnText.innerHTML='📝';
+                            var btnUpload = document.createElement('button'); btnUpload.className='cell-btn btn-upload'; btnUpload.innerHTML='📷';
+                            var btnTick = document.createElement('button'); btnTick.className='cell-btn btn-tick'; btnTick.innerHTML='☑';
+                            actionOverlay.appendChild(btnSwap); actionOverlay.appendChild(btnClear); actionOverlay.appendChild(btnText); actionOverlay.appendChild(btnUpload); actionOverlay.appendChild(btnTick);
+                            cell.appendChild(actionOverlay);
+                
+                            var cellRef = ref(db, `grids/${GRID_ID}/data/${id}`);
+                                                    var lastVal = { text: "", completed: false, blueTick: false };
+                                                    onValue(cellRef, (snap) => {
+                                                        lastVal = snap.val() || { text: "", completed: false, blueTick: false };
+                                                        renderContent(contentDiv, lastVal, cellSize);
+                                                        lastVal.completed ? cell.classList.add('completed') : cell.classList.remove('completed');
+                                                        lastVal.blueTick ? cell.classList.add('has-tick') : cell.classList.remove('has-tick');
+                                                    });
+                
+                            btnTick.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; update(cellRef, { blueTick: !lastVal.blueTick }); });
+                            btnUpload.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; targetCellForUpload = { cellRef, cellEl: cell }; uploaderInput.click(); });
+                            btnText.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; openTextInput(lastVal.text || "", (nw) => { if (isImageUrl(nw)) { openPositioner(cellRef, nw, lastVal); } else { update(cellRef, { text: nw, posX: null, posY: null, scale: null }); } }); });
+                            btnSwap.addEventListener('click', (e) => {
+                                e.stopPropagation(); if (lockedState) return;
+                                if (!swapSource) { swapSource = { id, element: cell }; cell.classList.add('swap-source'); }
+                                else if (swapSource.id === id) { swapSource.element.classList.remove('swap-source'); swapSource = null; }
+                                else {
+                                    var sRef = ref(db, `grids/${GRID_ID}/data/${swapSource.id}`);
+                                    var tRef = ref(db, `grids/${GRID_ID}/data/${id}`);
+                                    onValue(sRef, (s1) => { onValue(tRef, (s2) => { update(sRef, s2.val()); update(tRef, s1.val()); }, { onlyOnce: true }); }, { onlyOnce: true });
+                                    swapSource.element.classList.remove('swap-source'); swapSource = null;
+                                }
+                            });
+                            btnClear.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; update(cellRef, { text: "", completed: false, blueTick: false }); });
+                            cell.addEventListener('click', () => { var nowCompleted = !cell.classList.contains('completed'); nowCompleted ? cell.classList.add('completed') : cell.classList.remove('completed'); update(cellRef, { completed: nowCompleted }); });
+                        }
 
         function initApp() {
             const container = document.getElementById('grid-system');
