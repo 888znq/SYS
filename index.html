@@ -90,11 +90,6 @@
 <body>
         <button class="ctrl-btn lock-btn unlocked" id="lock-system" onclick="toggleLock()">Unlock</button>
         <div id="grid-system" class="dynamic-grid"></div>
-        <button id="reset-bottom-btn" onclick="resetBottomRows()" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 30; background: #000432; border: 1px solid rgba(255,68,68,0.2); color: #FF4444; cursor: pointer; display: none; padding: 5px 15px; outline: none; align-items: center; justify-content: center; border-radius: 20px; box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.7), -4px -4px 10px rgba(255, 255, 255, 0.04); transition: 0.2s;">
-                    <svg width="50" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0px 0px 4px rgba(255,68,68,0.5));">
-                        <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-5.096 0-5.096 8 0 8 5.606 0 7.644-8 12.739-8z"></path>
-                    </svg>
-                </button>
         <div class="bottom-controls-wrapper" id="size-ctrls-bottom" style="display:flex; gap:5px;">
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', 1)">+</button>
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', -1)">-</button>
@@ -270,25 +265,7 @@
                     }, { onlyOnce: true });
                 };
         
-                window.resetBottomRows = () => {
-                            const configRef = ref(db, `grids/${GRID_ID}/config`);
-                            onValue(configRef, (snap) => {
-                                const config = snap.val();
-                                if (!config) return;
-                                const rows = config.rows || 5;
-                                const cols = config.cols || 5;
-                                
-                                const startRow = Math.max(0, rows - 2);
-                                
-                                for (let r = startRow; r < rows; r++) {
-                                    for (let c = 0; c < cols; c++) {
-                                        update(ref(db, `grids/${GRID_ID}/data/${r}_${c}`), { completed: false });
-                                    }
-                                }
-                            }, { onlyOnce: true });
-                        };
-
-        function renderContent(el, data, cellSize) {
+                function renderContent(el, data, cellSize) {
                                     const cleanText = (data?.text || "").trim();
                             if (isImageUrl(cleanText)) {
                                                     el.style.background = '#fff';
@@ -355,19 +332,17 @@
             const container = document.getElementById('grid-system');
             const lockBtn = document.getElementById('lock-system');
                         const ctrlBottom = document.getElementById('size-ctrls-bottom');
-                        const ctrlCol = document.getElementById('size-ctrls-col');
-                        const resetBtn = document.getElementById('reset-bottom-btn');
-            
-                        onValue(ref(db, `grids/${GRID_ID}/config`), (snap) => {
+                                                const ctrlCol = document.getElementById('size-ctrls-col');
+                                    
+                                                onValue(ref(db, `grids/${GRID_ID}/config`), (snap) => {
                             const config = snap.val() || { rows: 5, cols: 5, locked: false };
                             lockedState = config.locked;
                             lockBtn.innerText = config.locked ? "Locked" : "Unlock";
                             lockBtn.className = `ctrl-btn lock-btn ${config.locked ? 'locked' : 'unlocked'}`;
                                                         ctrlBottom.style.display = config.locked ? 'none' : 'flex';
-                                                        ctrlCol.style.display = config.locked ? 'none' : 'flex';
-                                                        if (resetBtn) resetBtn.style.display = config.locked ? 'flex' : 'none';
-                                        
-                                                        if (lockedState) container.classList.remove('grid-unlocked');
+                                                                                                                ctrlCol.style.display = config.locked ? 'none' : 'flex';
+                                                                                                
+                                                                                                                if (lockedState) container.classList.remove('grid-unlocked');
                 else container.classList.add('grid-unlocked');
 
                 const mainDisplayHeight = window.innerHeight;
