@@ -53,10 +53,7 @@
                         .lock-btn.locked { background: var(--ring-red); color: white; border-color: var(--ring-red); }
                                                 .lock-btn.unlocked { background: transparent; color: var(--ring-green); border-color: var(--ring-green); }
 
-        .view-btn { position: absolute; top: 12px; right: 12px; padding: 3px; gap: 2px; z-index: 30; border-radius: 20px; font-size: 0.65rem; letter-spacing: 0.05em; }
-                .view-seg { padding: 4px 12px; border-radius: 16px; pointer-events: none; }
-                .view-seg.active { background: var(--ring-green); color: #000432; }
-                .bottom-controls-wrapper { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 25; }
+        .bottom-controls-wrapper { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 25; }
         .controls-col { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 5px; z-index: 10; }
         .btn-wide { width: 38px; height: 26px; }
         .btn-tall { width: 26px; height: 38px; }
@@ -84,7 +81,6 @@
 </head>
 <body>
         <button class="ctrl-btn lock-btn unlocked" id="lock-system" onclick="toggleLock()">Unlock</button>
-                <button class="ctrl-btn view-btn" id="view-toggle" onclick="toggleView()"><span class="view-seg active" id="view-cur">Current</span><span class="view-seg" id="view-fut">Future</span></button>
         <div id="grid-system" class="dynamic-grid"></div>
         <div class="bottom-controls-wrapper" id="size-ctrls-bottom" style="display:flex; gap:5px;">
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', 1)">+</button>
@@ -117,11 +113,7 @@
         // ==========================================
         // UNIQUE ID: INSTANCE 1
         // ==========================================
-        var BASE_ID = "grid_1";
-                var GRID_ID = BASE_ID;
-                var viewMode = "main";
-                var configUnsub = null;
-                var cellUnsubs = [];
+        const GRID_ID = "grid_1";
 
         let lockedState = false;
         let swapSource = null;
@@ -161,19 +153,6 @@
                 });
 
         window.toggleLock = () => set(ref(db, `grids/${GRID_ID}/config/locked`), !lockedState);
-        
-                window.toggleView = () => {
-                    var viewRef = ref(db, `grids/${BASE_ID}/activeView`);
-                    if (viewMode === 'blank') { set(viewRef, 'main'); return; }
-                    var blankCfgRef = ref(db, `grids/${BASE_ID}_blank/config`);
-                    onValue(blankCfgRef, (blankSnap) => {
-                        if (blankSnap.exists()) { set(viewRef, 'blank'); return; }
-                        onValue(ref(db, `grids/${BASE_ID}/config`), (mainSnap) => {
-                            var c = mainSnap.val() || { rows: 5, cols: 5 };
-                            set(blankCfgRef, { rows: c.rows || 5, cols: c.cols || 5, locked: false }).then(() => set(viewRef, 'blank'));
-                        }, { onlyOnce: true });
-                    }, { onlyOnce: true });
-                };
         
                 function isImageUrl(str) {
                                     const cleanText = (str || "").trim();
@@ -311,7 +290,7 @@
                                 
                                             var cellRef = ref(db, `grids/${GRID_ID}/data/${id}`);
                                                                     var lastVal = { text: "", completed: false };
-                                                                    cellUnsubs[cellUnsubs.length] = onValue(cellRef, (snap) => {
+                                                                    onValue(cellRef, (snap) => {
                                                                         lastVal = snap.val() || { text: "", completed: false };
                                                                         renderContent(contentDiv, lastVal, cellSize);
                                                                         lastVal.completed ? cell.classList.add('completed') : cell.classList.remove('completed');
@@ -340,8 +319,7 @@
                                 var ctrlBottom = document.getElementById('size-ctrls-bottom');
                                                         var ctrlCol = document.getElementById('size-ctrls-col');
                                             
-                                                        if (configUnsub) configUnsub();
-                                                                                configUnsub = onValue(ref(db, `grids/${GRID_ID}/config`), (snap) => {
+                                                        onValue(ref(db, `grids/${GRID_ID}/config`), (snap) => {
                                     var config = snap.val() || { rows: 5, cols: 5, locked: false };
                    arrangements: lockedState = config.locked;
                                     lockBtn.innerText = config.locked ? "Locked" : "Unlock";
@@ -364,23 +342,14 @@
                         container.style.gridTemplateColumns = `repeat(${config.cols}, 1fr)`;
                         container.style.gridTemplateRows = `repeat(${config.rows}, 1fr)`;
         
-                        cellUnsubs.forEach(function (u) { if (typeof u === 'function') u(); });
-                                                cellUnsubs = [];
-                                                container.innerHTML = '';
+                        container.innerHTML = '';
                                         for (var i = 0; i < config.rows * config.cols; i++) {
                                             createCell(`${Math.floor(i / config.cols)}_${i % config.cols}`, container, cellSize);
                                         }
                     });
                 }
 
-        onValue(ref(db, `grids/${BASE_ID}/activeView`), (snap) => {
-                    viewMode = snap.val() === 'blank' ? 'blank' : 'main';
-                    GRID_ID = viewMode === 'blank' ? `${BASE_ID}_blank` : BASE_ID;
-                    document.getElementById('view-cur').classList.toggle('active', viewMode !== 'blank');
-                                document.getElementById('view-fut').classList.toggle('active', viewMode === 'blank');
-                    swapSource = null;
-                    initApp();
-                });
+        initApp();
         window.addEventListener('resize', initApp);
     </script>
 </body>
