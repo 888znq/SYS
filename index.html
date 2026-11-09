@@ -71,6 +71,14 @@
                         .btn-clear { top: 2px; right: 2px; border-color: #FF4444; }
                         .btn-text { bottom: 2px; left: 2px; }
                 .btn-upload { bottom: 2px; right: 2px; }
+                .btn-badge { top: 2px; left: 50%; margin-left: -10px; border-color: #FFD600; }
+                .cell-badge {
+                    position: absolute; top: -10px; right: -10px; width: 26px; height: 26px;
+                    border-radius: 50%; background: #FFD600; color: #000432;
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 14px; font-weight: 700; line-height: 1;
+                    box-shadow: 0 0 0 2px #000432; z-index: 6; pointer-events: none;
+                }
                         
                                 .uploading-overlay {
             position: absolute; inset: 0; background: rgba(0, 4, 50, 0.8);
@@ -270,6 +278,18 @@
                                                                 else { el.style.background = ''; el.innerText = cleanText; }
                                                             }
         
+                function applyBadge(cell, on) {
+                    var existing = cell.querySelector('.cell-badge');
+                    if (on && !existing) {
+                        var badge = document.createElement('div');
+                        badge.className = 'cell-badge';
+                        badge.innerText = '★';
+                        cell.appendChild(badge);
+                    } else if (!on && existing) {
+                        existing.remove();
+                    }
+                }
+                
                 function createCell(id, container, cellSize) {
                                             var cell = document.createElement('div');
                                             cell.className = 'grid-item';
@@ -285,7 +305,8 @@
                                             var btnClear = document.createElement('button'); btnClear.className='cell-btn btn-clear'; btnClear.innerHTML='❌';
                                             var btnText = document.createElement('button'); btnText.className='cell-btn btn-text'; btnText.innerHTML='📝';
                                             var btnUpload = document.createElement('button'); btnUpload.className='cell-btn btn-upload'; btnUpload.innerHTML='📷';
-                                            actionOverlay.appendChild(btnSwap); actionOverlay.appendChild(btnClear); actionOverlay.appendChild(btnText); actionOverlay.appendChild(btnUpload);
+                                            var btnBadge = document.createElement('button'); btnBadge.className='cell-btn btn-badge'; btnBadge.innerHTML='⭐';
+                                            actionOverlay.appendChild(btnSwap); actionOverlay.appendChild(btnClear); actionOverlay.appendChild(btnText); actionOverlay.appendChild(btnUpload); actionOverlay.appendChild(btnBadge);
                                             cell.appendChild(actionOverlay);
                                 
                                             var cellRef = ref(db, `grids/${GRID_ID}/data/${id}`);
@@ -294,6 +315,7 @@
                                                                         lastVal = snap.val() || { text: "", completed: false };
                                                                         renderContent(contentDiv, lastVal, cellSize);
                                                                         lastVal.completed ? cell.classList.add('completed') : cell.classList.remove('completed');
+                                                                        applyBadge(cell, !!lastVal.badge);
                                                                     });
                                 
                                             btnUpload.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; targetCellForUpload = { cellRef, cellEl: cell }; uploaderInput.click(); });
@@ -305,10 +327,11 @@
                                                 else {
                                                     var sRef = ref(db, `grids/${GRID_ID}/data/${swapSource.id}`);
                                                     var tRef = ref(db, `grids/${GRID_ID}/data/${id}`);
-                                                    onValue(sRef, (s1) => { onValue(tRef, (s2) => { update(sRef, s2.val()); update(tRef, s1.val()); }, { onlyOnce: true }); }, { onlyOnce: true });
+                                                    onValue(sRef, (s1) => { onValue(tRef, (s2) => { update(sRef, Object.assign({ badge: false }, s2.val())); update(tRef, Object.assign({ badge: false }, s1.val())); }, { onlyOnce: true }); }, { onlyOnce: true });
                                                     swapSource.element.classList.remove('swap-source'); swapSource = null;
                                                 }
                                             });
+                                            btnBadge.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; update(cellRef, { badge: !lastVal.badge }); });
                                             btnClear.addEventListener('click', (e) => { e.stopPropagation(); if (lockedState) return; update(cellRef, { text: "", completed: false }); });
                                             cell.addEventListener('click', () => { var nowCompleted = !cell.classList.contains('completed'); nowCompleted ? cell.classList.add('completed') : cell.classList.remove('completed'); update(cellRef, { completed: nowCompleted }); });
                                         }
