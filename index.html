@@ -52,6 +52,8 @@
                 .lock-btn { position: absolute; top: 12px; left: 12px; padding: 6px 14px; z-index: 30; border-radius: 20px; font-size: 0.65rem; letter-spacing: 0.05em; }
                         .lock-btn.locked { background: var(--ring-red); color: white; border-color: var(--ring-red); }
                                                 .lock-btn.unlocked { background: transparent; color: var(--ring-green); border-color: var(--ring-green); }
+                                                        .last-toggle-btn { top: auto; left: 12px; transform: translateX(-50%); padding: 0; width: 44px; height: 26px; font-size: 1.2rem; line-height: 1; background: transparent; color: var(--ring-red); border-color: var(--ring-red); }
+                                                                .last-toggle-btn.all-done { background: transparent; color: var(--ring-red); border-color: var(--ring-red); }
 
         .bottom-controls-wrapper { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 25; }
         .controls-col { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 5px; z-index: 10; }
@@ -89,7 +91,8 @@
 </head>
 <body>
         <button class="ctrl-btn lock-btn unlocked" id="lock-system" onclick="toggleLock()">Unlock</button>
-        <div id="grid-system" class="dynamic-grid"></div>
+        <button class="ctrl-btn lock-btn last-toggle-btn" id="toggle-last-rows" onclick="toggleLastRows()" aria-label="Reset last 2 rows">∞</button>
+                <div id="grid-system" class="dynamic-grid"></div>
         <div class="bottom-controls-wrapper" id="size-ctrls-bottom" style="display:flex; gap:5px;">
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', 1)">+</button>
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', -1)">-</button>
@@ -125,6 +128,26 @@
 
         let lockedState = false;
         let swapSource = null;
+                const FIXED_KEY_ROW = 5;
+                        const FIXED_COLS = 15;
+                        let currentRows = FIXED_KEY_ROW + 2;
+                let currentCols = FIXED_COLS;
+                const LAST_ROW_GAP = 40;
+                        let lastRowsData = {};
+                        function refreshLastToggle() {
+                            var btn = document.getElementById('toggle-last-rows');
+                            if (!btn) return;
+                            var startRow = Math.max(0, currentRows - 2);
+                            var allDone = true;
+                            for (var r = startRow; r < currentRows; r++) {
+                                for (var c = 0; c < currentCols; c++) {
+                                    var cd = lastRowsData[`${r}_${c}`];
+                                    if (!(cd && cd.completed)) { allDone = false; }
+                                }
+                            }
+                            btn.classList.toggle('all-done', allDone);
+                        }
+                        onValue(ref(db, `grids/${GRID_ID}/data`), (snap) => { lastRowsData = snap.val() || {}; refreshLastToggle(); });
         let targetCellForUpload = null;
 
         const uploaderInput = document.createElement('input');
@@ -161,6 +184,27 @@
                 });
 
         window.toggleLock = () => set(ref(db, `grids/${GRID_ID}/config/locked`), !lockedState);
+        
+                window.toggleLastRows = () => {
+                    var startRow = Math.max(0, currentRows - 2);
+                    var dataRef = ref(db, `grids/${GRID_ID}/data`);
+                    onValue(dataRef, (snap) => {
+                        var data = snap.val() || {};
+                        var allDone = true;
+                        for (var r = startRow; r < currentRows; r++) {
+                            for (var c = 0; c < currentCols; c++) {
+                                if (!(data[`${r}_${c}`] && data[`${r}_${c}`].completed)) { allDone = false; }
+                            }
+                        }
+                        var updates = {};
+                        for (var r2 = startRow; r2 < currentRows; r2++) {
+                            for (var c2 = 0; c2 < currentCols; c2++) {
+                                updates[`${r2}_${c2}/completed`] = false;
+                            }
+                        }
+                        update(dataRef, updates);
+                    }, { onlyOnce: true });
+                };
         
                 function isImageUrl(str) {
                                     const cleanText = (str || "").trim();
@@ -262,7 +306,7 @@
                                     var configRef = ref(db, `grids/${GRID_ID}/config`);
                                     onValue(configRef, (snap) => {
                                         var current = snap.val()?.[type] || 5;
-                                        update(configRef, { [type]: Math.max(1, current + delta) });
+                                        update(configRef, { [type]: Math.max(type === 'rows' ? 2 : 1, current + delta) });
                                     }, { onlyOnce: true });
                                 };
         
@@ -345,7 +389,10 @@
                                                         onValue(ref(db, `grids/${GRID_ID}/config`), (snap) => {
                                     var config = snap.val() || { rows: 5, cols: 5, locked: false };
                    arrangements: lockedState = config.locked;
-                                    lockBtn.innerText = config.locked ? "Locked" : "Unlock";
+                                    currentRows = FIXED_KEY_ROW + 2;
+                                                                        currentCols = FIXED_COLS;
+                                                                                                            refreshLastToggle();
+                                                                        lockBtn.innerText = config.locked ? "Locked" : "Unlock";
                                     lockBtn.className = `ctrl-btn lock-btn ${config.locked ? 'locked' : 'unlocked'}`;
                                                                 ctrlBottom.style.display = config.locked ? 'none' : 'flex';
                                                                                                                         ctrlCol.style.display = config.locked ? 'none' : 'flex';
@@ -356,18 +403,50 @@
                         var mainDisplayHeight = window.innerHeight;
                                                         var mainDisplayWidth = window.innerWidth;
                                                         var gap = 16;
-                                                        var maxCellW = ((mainDisplayWidth - 60) - (config.cols - 1) * gap) / config.cols;
-                                        var maxCellH = ((mainDisplayHeight - 60) - (config.rows - 1) * gap) / config.rows;
+                                                        var totalCols = Math.max(config.cols, FIXED_COLS);
+                                                                                                var maxCellW = ((mainDisplayWidth - 60) - (totalCols - 1) * gap) / totalCols;
+                                        var extraGap = config.rows > 2 ? LAST_ROW_GAP : 0;
+                                                                                var maxCellH = ((mainDisplayHeight - 60 - extraGap) - (config.rows - 1) * gap) / config.rows;
                         var cellSize = Math.floor(Math.min(maxCellW, maxCellH));
         
-                        container.style.width = `${(cellSize * config.cols) + ((config.cols - 1) * gap)}px`;
-                        container.style.height = `${(cellSize * config.rows) + ((config.rows - 1) * gap)}px`;
-                        container.style.gridTemplateColumns = `repeat(${config.cols}, 1fr)`;
-                        container.style.gridTemplateRows = `repeat(${config.rows}, 1fr)`;
+                        container.style.width = `${(cellSize * totalCols) + ((totalCols - 1) * gap)}px`;
+                        container.style.height = `${(cellSize * config.rows) + ((config.rows - 1) * gap) + extraGap}px`;
+                        container.style.gridTemplateColumns = `repeat(${totalCols}, ${cellSize}px)`;
+                        container.style.gridTemplateRows = `repeat(${config.rows}, ${cellSize}px)`;
+                                                container.style.alignContent = 'start';
+                                                                        var cellPlan = [];
+                                                                        var regRows = Math.max(0, config.rows - 2);
+                                                                        var regOffset = Math.floor((totalCols - config.cols) / 2);
+                                                                        var fixOffset = Math.floor((totalCols - FIXED_COLS) / 2);
+                                                                        for (var rr = 0; rr < regRows; rr++) {
+                                                                            for (var cc = 0; cc < config.cols; cc++) {
+                                                                                cellPlan.push({ id: `${rr < FIXED_KEY_ROW ? rr : rr + 2}_${cc}`, row: rr + 1, col: cc + regOffset + 1, fixed: false });
+                                                                            }
+                                                                        }
+                                                                        for (var fr = 0; fr < Math.min(2, config.rows); fr++) {
+                                                                            for (var fc = 0; fc < FIXED_COLS; fc++) {
+                                                                                cellPlan.push({ id: `${FIXED_KEY_ROW + fr}_${fc}`, row: regRows + fr + 1, col: fc + fixOffset + 1, fixed: true });
+                                                                            }
+                                                                        }
         
-                        container.innerHTML = '';
-                                        for (var i = 0; i < config.rows * config.cols; i++) {
-                                            createCell(`${Math.floor(i / config.cols)}_${i % config.cols}`, container, cellSize);
+                        var toggleBtn = document.getElementById('toggle-last-rows');
+                                                var gridRect = container.getBoundingClientRect();
+                                                toggleBtn.style.top = `${gridRect.bottom + 20}px`;
+                                                toggleBtn.style.left = `${gridRect.left + gridRect.width / 2}px`;
+                                                                        var ctrlRows = Math.max(0, config.rows - 2);
+                                                                        var ctrlTop = ctrlRows > 0 ? gridRect.top + (ctrlRows * cellSize) + ((ctrlRows - 1) * gap) + ((gap + extraGap) / 2) - 13 : gridRect.top - 30;
+                                                                        ctrlBottom.style.bottom = 'auto';
+                                                                        ctrlBottom.style.flexDirection = 'row';
+                                                                        ctrlBottom.style.top = `${ctrlTop}px`;
+                                                                        ctrlBottom.style.left = `${gridRect.left + gridRect.width / 2}px`;
+                                                                                                var regH = ctrlRows > 0 ? (ctrlRows * cellSize) + ((ctrlRows - 1) * gap) : gridRect.height;
+                                                                                                ctrlCol.style.top = `${gridRect.top + regH / 2}px`;
+                                                container.innerHTML = '';
+                                        for (var i = 0; i < cellPlan.length; i++) {
+                                            createCell(cellPlan[i].id, container, cellSize);
+                                                                                        container.lastElementChild.style.gridRow = cellPlan[i].row;
+                                                                                                                                    container.lastElementChild.style.gridColumn = cellPlan[i].col;
+                                                                                                                                    if (cellPlan[i].fixed && extraGap) { container.lastElementChild.style.top = `${extraGap}px`; }
                                         }
                     });
                 }
