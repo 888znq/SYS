@@ -52,8 +52,9 @@
                 .lock-btn { position: absolute; top: 12px; left: 12px; padding: 6px 14px; z-index: 30; border-radius: 20px; font-size: 0.65rem; letter-spacing: 0.05em; }
                         .lock-btn.locked { background: var(--ring-red); color: white; border-color: var(--ring-red); }
                                                 .lock-btn.unlocked { background: transparent; color: var(--ring-green); border-color: var(--ring-green); }
-                                                        .last-toggle-btn { top: auto; left: 12px; transform: translateX(-50%); padding: 0; width: 44px; height: 26px; font-size: 1.2rem; line-height: 1; background: transparent; color: var(--ring-red); border-color: var(--ring-red); }
-                                                                .last-toggle-btn.all-done { background: transparent; color: var(--ring-red); border-color: var(--ring-red); }
+                                                        .last-toggle-btn { top: auto; left: 12px; transform: translateX(-50%); padding: 0; width: 56px; height: 28px; background: transparent; color: var(--ring-red); border: none; border-radius: 0; }
+                                                                .last-toggle-btn:hover, .last-toggle-btn.all-done { background: transparent; color: var(--ring-red); border: none; }
+                                                                .last-toggle-btn svg { width: 44px; height: 22px; display: block; pointer-events: none; }
 
         .bottom-controls-wrapper { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 25; }
         .controls-col { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 5px; z-index: 10; }
@@ -91,7 +92,7 @@
 </head>
 <body>
         <button class="ctrl-btn lock-btn unlocked" id="lock-system" onclick="toggleLock()">Unlock</button>
-        <button class="ctrl-btn lock-btn last-toggle-btn" id="toggle-last-rows" onclick="toggleLastRows()" aria-label="Reset last 2 rows">∞</button>
+        <button class="ctrl-btn lock-btn last-toggle-btn" id="toggle-last-rows" onclick="toggleLastRows()" aria-label="Reset last 2 rows"><svg viewBox="0 0 40 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10C16 4 6 4 6 10C6 16 16 16 20 10C24 4 34 4 34 10C34 16 24 16 20 10Z"/></svg></button>
                 <div id="grid-system" class="dynamic-grid"></div>
         <div class="bottom-controls-wrapper" id="size-ctrls-bottom" style="display:flex; gap:5px;">
         <button class="ctrl-btn btn-wide" onclick="changeSize('rows', 1)">+</button>
@@ -406,7 +407,7 @@
                                                         var totalCols = Math.max(config.cols, FIXED_COLS);
                                                                                                 var maxCellW = ((mainDisplayWidth - 60) - (totalCols - 1) * gap) / totalCols;
                                         var extraGap = config.rows > 2 ? LAST_ROW_GAP : 0;
-                                                                                var maxCellH = ((mainDisplayHeight - 60 - extraGap) - (config.rows - 1) * gap) / config.rows;
+                                                                                var maxCellH = ((mainDisplayHeight - 110 - extraGap) - (config.rows - 1) * gap) / config.rows;
                         var cellSize = Math.floor(Math.min(maxCellW, maxCellH));
         
                         container.style.width = `${(cellSize * totalCols) + ((totalCols - 1) * gap)}px`;
